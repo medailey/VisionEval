@@ -2,9 +2,9 @@
   "Model": "VESimHouseholds Test",
   "Scenario": "Test",
   "Description": "Test of VESimHouseholds package modules",
-  "Region": "RVMPO",
+  "Region": "Oregon",
   "BaseYear": "2010",
-  "Years": ["2010", "2038"],
+  "Years": ["2010", "2040"],
   "DatastoreName": "Datastore",
   "DatastoreType": "RD",
   "Seed": 1
