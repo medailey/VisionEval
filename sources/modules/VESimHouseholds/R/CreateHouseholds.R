@@ -771,6 +771,7 @@ documentModule("CreateHouseholds")
 #   DoRun = FALSE
 # )
 # L <- TestDat_$L
+# R <- CreateHouseholds(L)
 
 #Test code to check everything including running the module and checking whether
 #the outputs are consistent with the 'Set' specifications
