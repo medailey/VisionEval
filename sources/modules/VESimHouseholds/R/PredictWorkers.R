@@ -344,7 +344,7 @@ PredictWorkers <- function(L) {
       RelEmp <-
         L$Year$Azone[[Re[i]]][match(L$Year$Household$Azone, L$Year$Azone$Azone)]
     } else {
-      RelEmp <- 1
+      RelEmp <- rep(1, length(L$Year$Household$Azone))
     }
     DoPredict_ <- NumPrsn_ > 0 & Probs_ > 0
     Out_ls$Year$Household[[Wk[i]]][DoPredict_] <-
