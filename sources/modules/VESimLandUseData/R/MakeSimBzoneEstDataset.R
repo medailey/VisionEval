@@ -14,17 +14,27 @@
 #* The building data are aggregated into 2 types (single-family, multifamily);
 #* The building proportions are used in estimating the models; and,
 #* The income data are normalized by median income of the region.
+#
 ### Smart Location Database
 #The US Environmental Protection Agency's (EPA) [Smart Location Database](https://www.epa.gov/smartgrowth/smart-location-mapping) is the principal source of data used for developing the method for the synthesizing Bzones. The SLD includes a large number of land use and transportation measures at the Census block group level for the year 2010. The large majority of these are measures of the so called *5D* measures that have been found to have significant relationships to personal travel: density, diversity, design, distance to transit, and access to destinations. Several 5D measures are used in estimating the multimodal travel models that will be incorporated into VisionEval in the future. These measures are calculated by modules in the VELandUse package and they need to be calculated by modules in the VESimLandUse package as well. The SLD data used for estimating SimBzone models includes some additional data items that were added to the dataset for estimating the multimodal travel models. These include the amount of population within 5 miles of each block group and the amount of employment within 2 miles of each block group. The population and employment totals were computed based on straight-line distances between block group centroids. These values are used to compute a destination accessibility measure that is the [harmonic mean](https://en.wikipedia.org/wiki/Harmonic_mean) of the two values. This destination accessibility measure is used instead of the measures in the SLD which do not adequately distinguish accessibility in smaller urbanized areas. The harmonic mean of population within 5 miles and employment within 2 miles has been found to be useful in distinguishing area types in urbanized areas of different sizes. The `processSLD` carries out these steps.
+#
 ### National Transit Database (NTD)
 #The `processTransitData` function reads in 2010 transit service, agency, and urbanized area files downloaded from the National Transit Database [website](https://www.transit.dot.gov/ntd). These downloaded files are included in the `inst/extdata` directory of this package. The function sums up the annual vehicle miles for fixed-route transit and vehicle revenue miles for fixed route transit by urbanized area. The urbanized area names are checked against the names in the Smart Location Database and are made consistent so that the transit data can be joined with the SLD dataset.
+#
 ### Making the SimBzone Estimation Dataset
 #The SimBzone model estimation dataset combines the Census, SLD, and NTD datasets along with the latitudes and longitudes of the block group centroids (used for map documentation of models). The variables are limited to those needed to model Bzone attributes used in the multimodal travel model and other VisionEval modules. The dataset is cleaned to remove block groups that have no activity (i.e. households or jobs) or no land area. Comments in the script provide specifics about cleaning. In addition, some of the 5D measures are recalculated. The density measure (referred to as D1D in the SLD), a measure of households and jobs per acre, is calculated using the land area (excludes water bodies) recorded in the SLD rather than the unprotected land area for the following reasons:
 #* The activity density of block groups needs to "add up" to the overall density of the urban area they are a part of;
 #* The unprotected land area of the large majority of block groups is equal to the land area; and,
 #* A significant number of block groups had no recorded unprotected land area.
 #The diversity measure (referred to as D2A_JPHH), the ratio of jobs to housing, is recalculated to assure that it is consistent with the numbers of jobs and households recorded in the SLD. In addition, the entropy measure is recalculated to be consistent with the entropy measure used in the multimodal travel model. This measure is calculated in the same way as the SLD entropy measures but with 3 employment sectors (retail, service, other), rather than 5.
-#<doc>
+#</doc>
+
+#Temporary code for development
+#------------------------------
+# library(visioneval)
+# library(tidycensus)
+# library(stringr)
+
 
 #===============================================================================
 #Function to retrieve/process census block group housing types and median income
@@ -55,57 +65,24 @@
 #' MedianInc - Median household income
 #' @export
 #' @import tidycensus
-getCensusHousingInc <- function() {
-  #Only run if the census housing and income dataset does not exist
-  #Register Census API key.
-  #Define a vector of state abbreviations
-  States_ <-
-    c("AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI",
-      "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN",
-      "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH",
-      "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA",
-      "WV", "WI", "WY")
-  #Define a vector of census variable names for building type
-  BldSzVars_ <- c("B25024_001E", "B25024_002E", "B25024_003E", "B25024_004E",
-                  "B25024_005E",  "B25024_006E",  "B25024_007E",  "B25024_008E",
-                  "B25024_009E",  "B25024_010E",  "B25024_011E")
-  IncVar <- "B19013_001E"
-  #Iterate through states, download building data, process and save in a list
-  CensusBlkGrp_ls <- list()
-  for (St in States_) {
-    print(St)
-    StartTime <- Sys.time()
-    Data_df <-
-      get_acs(geography = "block group",
-              variables = c(BldSzVars_, IncVar),
-              state = St,
-              year = 2015)
-    BldgData_df <- Data_df[Data_df$variable %in% substr(BldSzVars_, 1, 10),]
-    Bldg_BgSz <- matrix(BldgData_df$estimate, ncol = 11, byrow = TRUE)
-    Tot_Bg <- Bldg_BgSz[,1]
-    SF_Bg <- rowSums(Bldg_BgSz[,2:3])
-    MF_Bg <- rowSums(Bldg_BgSz[,4:10])
-    MedianInc_ <- Data_df[Data_df$variable %in% substr(IncVar, 1, 10),]$estimate
-    CensusBlkGrp_ls[[St]] <- data.frame(
-      GeoID = matrix(Data_df$GEOID, ncol = 12, byrow = TRUE)[,1],
-      Total = Tot_Bg,
-      NumSF = SF_Bg,
-      NumMF = MF_Bg,
-      PropSF = SF_Bg / Tot_Bg,
-      PropMF = MF_Bg / Tot_Bg,
-      MedianInc = MedianInc_
-    )
-    CensusBlkGrp_ls[[St]]$GeoID <- as.character(CensusBlkGrp_ls[[St]]$GeoID)
-    rm(Bldg_BgSz, Tot_Bg, SF_Bg, MF_Bg)
-    print(Sys.time() - StartTime)
-  }
-  #Combine into a data frame
-  CensusBlkGrp_df <- do.call(rbind, CensusBlkGrp_ls)
-  CensusBlkGrp_df$State <- rep(States_, unlist(lapply(CensusBlkGrp_ls, nrow)))
-  rownames(CensusBlkGrp_df) <- NULL
-  #Return the result
-  CensusBlkGrp_df
+processCensusHousingInc <- function(Data_df, BldSzVars_, IncVar) {
+  BldgData_df <- Data_df[Data_df$variable %in% substr(BldSzVars_, 1, 10),]
+  Bldg_BgSz <- matrix(BldgData_df$estimate, ncol = 11, byrow = TRUE)
+  Tot_Bg <- Bldg_BgSz[,1]
+  SF_Bg <- rowSums(Bldg_BgSz[,2:3])
+  MF_Bg <- rowSums(Bldg_BgSz[,4:10])
+  MedianInc_ <- Data_df[Data_df$variable %in% substr(IncVar, 1, 10),]$estimate
+  data.frame(
+    GeoID = as.character(matrix(Data_df$GEOID, ncol = 12, byrow = TRUE)[,1]),
+    Total = Tot_Bg,
+    NumSF = SF_Bg,
+    NumMF = MF_Bg,
+    PropSF = SF_Bg / Tot_Bg,
+    PropMF = MF_Bg / Tot_Bg,
+    MedianInc = MedianInc_
+  )
 }
+
 
 #====================================================
 #Function to load and process smart location database
@@ -147,7 +124,7 @@ getCensusHousingInc <- function() {
 #' @export
 processSLD <- function() {
   #Load augmented SLD dataset developed for the multimodal travel model
-  SLD_tb <- readRDS("data/SLD_tb.rds")
+  SLD_tb <- readRDS("inst/extdata/SLD_tb.rds")
   #Remove records for territories
   TerrFips_ <- c("60", "66", "69", "72")
   SLD_tb <- SLD_tb[!(SLD_tb$SFIPS %in% TerrFips_),]
@@ -491,8 +468,39 @@ createSimLandUseDataset <- function() {
 #====================================================================
 #Process Census housing and income data if not already done
 #----------------------------------------------------------
-if (!file.exists("inst/extdata/CensusHouseTypeInc_df.rds"))  {
-  saveRDS(getCensusHousingInc(), "data/CensusHouseTypeInc_df.rds")
+if (!file.exists("data/CensusHouseTypeInc_df.rds"))  {
+  #Define a vector of state abbreviations
+  States_ <-
+    c("AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI",
+      "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN",
+      "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH",
+      "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA",
+      "WV", "WI", "WY")
+  #Define the variable names to retrieve
+  BldSzVars_ <- c(
+    "B25024_001E", "B25024_002E", "B25024_003E", "B25024_004E",
+    "B25024_005E",  "B25024_006E",  "B25024_007E",  "B25024_008E",
+    "B25024_009E",  "B25024_010E",  "B25024_011E")
+  IncVar <- "B19013_001E"
+  CensusBlkGrp_ls <- list()
+  for (St in States_) {
+    #Download data from Census
+    Census_df <-
+      get_acs(geography = "block group",
+              variables = c(BldSzVars_, IncVar),
+              state = St,
+              year = 2015)
+    #Process Census download
+    CensusBlkGrp_ls[[St]] <-
+      processCensusHousingInc(Census_df, BldSzVars_, IncVar)
+  }
+  #Combine into a data frame
+  CensusBlkGrp_df <- do.call(rbind, CensusBlkGrp_ls)
+  CensusBlkGrp_df$State <- rep(States_, unlist(lapply(CensusBlkGrp_ls, nrow)))
+  rownames(CensusBlkGrp_df) <- NULL
+  #Save the dataset and clean up
+  saveRDS(CensusBlkGrp_df, "data/CensusHouseTypeInc_df.rds")
+  rm(States_, BldSzVars_, IncVar, CensusBlkGrp_ls, St, CensusBlkGrp_df)
 }
 #Process the Smart Location Database if not already done
 #-------------------------------------------------------
