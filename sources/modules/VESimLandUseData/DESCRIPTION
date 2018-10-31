@@ -18,7 +18,8 @@ Depends: R (>= 3.1.0)
 Imports:
     visioneval,
     devtools,
-    tidycensus
+    tidycensus,
+    stringr
 Suggests:
     knitr,
     rmarkdown
