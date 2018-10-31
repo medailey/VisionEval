@@ -31,30 +31,37 @@
 
 #Temporary code for development
 #------------------------------
-# library(visioneval)
-# library(tidycensus)
-# library(stringr)
+library(visioneval)
+library(tidycensus)
+library(stringr)
 
 
-#===============================================================================
-#Function to retrieve/process census block group housing types and median income
-#===============================================================================
-#' Download and process census block group housing and median income data.
+#======================================================================
+#Function to process census block group housing types and median income
+#======================================================================
+#' Process census block group housing and median income data downloaded using
+#' the Census API.
 #'
-#' \code{getCensusHousingInc} downloads and process Census block group housing
-#' and median income for states and the District of Columbia in the United
-#' States.
+#' \code{processCensusHousingInc} processes Census block group housing and
+#' median income data for states and the District of Columbia in the United
+#' States downloaded using the Census API.
 #'
-#' This function uses the Census API to download block group level data for
-#' numbers of dwelling units by type and household median income. Housing units
-#' groups are aggregated into to categories, single-family and multifamily.
-#' Single family units include all detached dwelling units. Multifamily include
-#' all other dwelling units. Note to use this function, you must have a Census
-#' API key. You need to get a Census API key from this website:
-#' https://api.census.gov/data/key_signup.html
-#' Then uncomment the following line of code and insert the key where indicated
+#' This function processes block group level data for numbers of dwelling units
+#' by type and household median income that has been downloaded using the Census
+#' API. Housing units groups are aggregated into to categories, single-family
+#' and multifamily. Single family units include all detached dwelling units.
+#' Multifamily include all other dwelling units. Note to use this function, you
+#' must have a Census API key. You need to get a Census API key from this
+#' website: https://api.census.gov/data/key_signup.html Then uncomment the
+#' following line of code and insert the key where indicated
 #' census_api_key(INSERT CENSUS API KEY HERE, install = TRUE)
 #'
+#' @param Data_df A data frame produced the get_acs function in the tidycensus
+#' package.
+#' @param BldSzVars_ A string vector identifying the names of the building
+#' size variables in the ACS dataset.
+#' @param IncVar A string identifying the name of the median income variable in
+#' the ACS dataset.
 #' @return A data frame containing the following components:
 #' GeoID - Census block group ID
 #' Total - Total number of dwelling units
@@ -253,7 +260,7 @@ processTransitData <- function() {
   #Correspond NTD urbanized areas with SLD urbanized areas
   #-------------------------------------------------------
   #Load SLD data
-  SLD_df <- readRDS("data/SLD_df.rds")
+  SLD_df <- readRDS("inst/extdata/SLD_df.rds")
   #Identify urbanized area names to be renamed to be consistent with SLD
   Rename_ <- local({
     #Make vectors of urbanized area names from SLD and NTD
@@ -382,7 +389,7 @@ processTransitData <- function() {
 #' area
 #' @export
 createSimLandUseDataset <- function() {
-  D_df <- readRDS("data/SLD_df.rds")
+  D_df <- readRDS("inst/extdata/SLD_df.rds")
   #Add state abbreviation
   StFips_df <- readRDS("inst/extdata/StateFIPS_df.rds")
   D_df$SFIPS <- as.character(D_df$SFIPS)
@@ -449,12 +456,12 @@ createSimLandUseDataset <- function() {
     OthEmp_Bz = with(D_df, EMPTOT - E5_RET10 - E5_SVC10)
   )
   #Combine census data
-  CensusBlkGrp_df <- readRDS("data/CensusHouseTypeInc_df.rds")
+  CensusBlkGrp_df <- readRDS("inst/extdata/CensusHouseTypeInc_df.rds")
   D_df$PropSF <- CensusBlkGrp_df$PropSF[match(D_df$GEOID10, CensusBlkGrp_df$GeoID)]
   D_df$PropMF <- CensusBlkGrp_df$PropMF[match(D_df$GEOID10, CensusBlkGrp_df$GeoID)]
   D_df$MedianInc <- CensusBlkGrp_df$MedianInc[match(D_df$GEOID10, CensusBlkGrp_df$GeoID)]
   #Add the transit data
-  Transit_df <- readRDS("data/Transit_df.rds")
+  Transit_df <- readRDS("inst/extdata/Transit_df.rds")
   D_df$TransitVehMi <-
     Transit_df$VehicleMiles[match(D_df$UA_NAME, Transit_df$UaName)]
   D_df$TransitRevMi <-
@@ -468,7 +475,7 @@ createSimLandUseDataset <- function() {
 #====================================================================
 #Process Census housing and income data if not already done
 #----------------------------------------------------------
-if (!file.exists("data/CensusHouseTypeInc_df.rds"))  {
+if (!file.exists("inst/extdata/CensusHouseTypeInc_df.rds"))  {
   #Define a vector of state abbreviations
   States_ <-
     c("AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI",
@@ -499,18 +506,18 @@ if (!file.exists("data/CensusHouseTypeInc_df.rds"))  {
   CensusBlkGrp_df$State <- rep(States_, unlist(lapply(CensusBlkGrp_ls, nrow)))
   rownames(CensusBlkGrp_df) <- NULL
   #Save the dataset and clean up
-  saveRDS(CensusBlkGrp_df, "data/CensusHouseTypeInc_df.rds")
+  saveRDS(CensusBlkGrp_df, "inst/extdata/CensusHouseTypeInc_df.rds")
   rm(States_, BldSzVars_, IncVar, CensusBlkGrp_ls, St, CensusBlkGrp_df)
 }
 #Process the Smart Location Database if not already done
 #-------------------------------------------------------
 if (!file.exists("inst/extdata/SLD_df.rds"))  {
-  saveRDS(processSLD(), "data/SLD_df.rds")
+  saveRDS(processSLD(), "inst/extdata/SLD_df.rds")
 }
 #Process transit data if not already done
 #----------------------------------------
 if (!file.exists("inst/extdata/Transit_df.rds"))  {
-  saveRDS(processTransitData(), "data/Transit_df.rds")
+  saveRDS(processTransitData(), "inst/extdata/Transit_df.rds")
 }
 #Process and save the sim land use model estimation data if not already done
 #---------------------------------------------------------------------------
@@ -565,4 +572,4 @@ if (!file.exists("data/SimLandUseData_df.rda"))  {
 #====================
 #Run module automatic documentation
 #----------------------------------
-documentModule("MakeSimBzoneEstDataset")
+visioneval::documentModule("MakeSimBzoneEstDataset")
